@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  slam-bot-ros:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: slam-bot-ros
+    privileged: true  # Required for hardware access
+    network_mode: host  # Required for ROS communication
+    volumes:
+      - ./src:/workspace/src:rw
+      - ./config:/workspace/config:rw
+      - ./launch:/workspace/launch:rw
+      - ./maps:/workspace/maps:rw
+      - /dev:/dev:rw  # Access to hardware devices
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # X11 forwarding for RViz
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_DOMAIN_ID=0
+      - PYTHONPATH=/workspace/src
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0  # RoboClaw serial connection
+      - /dev/video0:/dev/video0    # RealSense camera
+      - /dev/video1:/dev/video1    # RealSense camera (depth)
+    restart: unless-stopped
+    command: tail -f /dev/null  # Keep container running
+
+  slam-bot-gui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gui
+    container_name: slam-bot-gui
+    privileged: true
+    network_mode: host
+    volumes:
+      - ./config:/workspace/config:rw
+      - ./maps:/workspace/maps:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_DOMAIN_ID=0
+    depends_on:
+      - slam-bot-ros
+    restart: unless-stopped
+    command: tail -f /dev/null
+
+networks:
+  default:
+    driver: bridge

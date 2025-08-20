@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>slam_bot_navigation</name>
+  <version>0.1.0</version>
+  <description>Navigation and SLAM configuration for SLAM Bot</description>
+  
+  <maintainer email="your-email@example.com">Your Name</maintainer>
+  <license>MIT</license>
+  
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  
+  <depend>rclcpp</depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>nav2_bringup</depend>
+  <depend>rtabmap_ros</depend>
+  <depend>realsense2_camera</depend>
+  
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

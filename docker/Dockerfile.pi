@@ -1,0 +1,94 @@
+FROM arm64v8/ubuntu:22.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONPATH=/workspace/src
+ENV ROS_DISTRO=humble
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    vim \
+    nano \
+    htop \
+    tree \
+    software-properties-common \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add ROS2 repository
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+# Install ROS2 Humble
+RUN apt-get update && apt-get install -y \
+    ros-humble-ros-base \
+    ros-humble-robot-state-publisher \
+    ros-humble-joint-state-publisher \
+    ros-humble-urdf \
+    ros-humble-xacro \
+    ros-humble-robot-localization \
+    ros-humble-robot-nav-tutorials \
+    ros-humble-navigation2 \
+    ros-humble-nav2-bringup \
+    ros-humble-rtabmap-ros \
+    ros-humble-realsense2-camera \
+    ros-humble-realsense2-description \
+    ros-humble-teleop-twist-keyboard \
+    ros-humble-rviz2 \
+    ros-humble-gazebo-ros-pkgs \
+    ros-humble-gazebo-ros2-control \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install additional tools
+RUN apt-get update && apt-get install -y \
+    ros-humble-rqt \
+    ros-humble-rqt-graph \
+    ros-humble-rqt-plot \
+    ros-humble-rqt-console \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir \
+    numpy \
+    opencv-python \
+    pyserial \
+    pynput \
+    matplotlib \
+    scipy
+
+# Install RealSense SDK for ARM64
+RUN apt-get update && apt-get install -y \
+    libusb-1.0-0-dev \
+    libglfw3-dev \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build and install RealSense SDK from source for ARM64
+RUN cd /tmp && \
+    git clone https://github.com/IntelRealSense/librealsense.git && \
+    cd librealsense && \
+    mkdir build && cd build && \
+    cmake ../ -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=false -DBUILD_GRAPHICAL_EXAMPLES=false && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig && \
+    cd / && rm -rf /tmp/librealsense
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Source ROS2 setup
+RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+RUN echo "source /workspace/install/setup.bash" >> ~/.bashrc
+
+# Set default command
+CMD ["/bin/bash"]

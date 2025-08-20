@@ -1,0 +1,36 @@
+# Motor Controller Parameters for SLAM Bot
+
+motor_controller:
+  ros__parameters:
+    # Serial communication
+    serial_port: "/dev/ttyUSB0"
+    baud_rate: 115200
+    
+    # Motor addresses
+    left_motor_address: 128
+    right_motor_address: 129
+    
+    # Physical robot parameters
+    wheel_diameter: 0.065  # meters
+    wheel_separation: 0.25  # meters
+    encoder_ticks_per_rev: 1440
+    
+    # Velocity limits
+    max_linear_velocity: 1.0  # m/s
+    max_angular_velocity: 2.0  # rad/s
+    
+    # PID parameters for velocity control
+    left_motor_pid:
+      p: 0.5
+      i: 0.1
+      d: 0.05
+      qpps: 1000
+    
+    right_motor_pid:
+      p: 0.5
+      i: 0.1
+      d: 0.05
+      qpps: 1000
+    
+    # Publishing rate
+    publish_rate: 50.0  # Hz

@@ -12,6 +12,10 @@ This guide will get you up and running with the SLAM Bot directly on your Pi.
 - RealSense D455 camera
 - 2x DC motors with encoders
 
+## 🚨 **Important: Package Availability**
+
+Some ROS2 packages are not available for ARM64 architecture on Raspberry Pi. The Dockerfiles have been updated to only install available packages. See `PI_PACKAGE_NOTES.md` for details.
+
 ## 🎯 Quick Setup (3 Steps)
 
 ### **Step 1: Clone and Setup**
@@ -103,6 +107,18 @@ apt-cache search python3-pyserial
 apt-cache search python3-serial
 ```
 
+## 🔄 **Rebuilding After Package Fixes**
+
+If you encountered the ROS2 package errors, rebuild the containers:
+
+```bash
+# Stop existing containers
+docker-compose -f docker-compose.pi.yml down
+
+# Rebuild with updated Dockerfiles
+docker-compose -f docker-compose.pi.yml up -d --build
+```
+
 ## 🎮 Using the Robot
 
 ### **Start the Robot Base**
@@ -119,8 +135,8 @@ ros2 launch slam_bot_bringup robot.launch.py
 # In another terminal, access container
 docker exec -it slam-bot-ros bash
 
-# Start SLAM
-ros2 launch slam_bot_navigation slam.launch.py
+# Start SLAM (using Navigation2 built-in capabilities)
+ros2 launch nav2_bringup bringup_launch.py slam:=True
 ```
 
 ### **Start Navigation**
@@ -268,6 +284,7 @@ python3 -c "import serial; print('pyserial working')"
 ├── setup_on_pi.sh         # Main Pi setup script
 ├── simple_setup_pi.sh     # Simple Pi setup script (alternative)
 ├── start_slam_bot.sh      # Startup script (created by setup)
+├── PI_PACKAGE_NOTES.md    # Package availability information
 └── README.md              # Project documentation
 ```
 
@@ -279,6 +296,7 @@ python3 -c "import serial; print('pyserial working')"
 4. **Cooling**: Ensure Pi has adequate ventilation
 5. **Storage**: Use high-quality microSD card (Class 10+)
 6. **Package issues**: Use the simple setup script if you encounter package problems
+7. **ROS2 packages**: Some advanced packages aren't available for ARM64 (see `PI_PACKAGE_NOTES.md`)
 
 ## 🔄 Development Workflow
 
@@ -310,7 +328,8 @@ If you encounter issues:
 3. **Check system resources**: `htop`, `df -h`, `free -h`
 4. **Review configuration files**
 5. **Try the simple setup script** if packages fail
-6. **Check the full deployment guide**: `PI_DEPLOYMENT.md`
+6. **Check package availability**: `PI_PACKAGE_NOTES.md`
+7. **Check the full deployment guide**: `PI_DEPLOYMENT.md`
 
 ## 🎉 Success Indicators
 
@@ -318,9 +337,9 @@ You'll know everything is working when:
 
 - ✅ Docker containers are running (`docker ps` shows containers)
 - ✅ Robot launches without errors
-- ✅ Camera data is flowing (`ros2 topic echo /camera/color/image_raw`)
 - ✅ Motor controller responds (`ros2 topic echo /wheel_odom`)
-- ✅ RViz shows robot model and sensor data
+- ✅ RViz shows robot model
+- ✅ Navigation2 launches successfully
 
 ## 🆘 Still Having Issues?
 
@@ -331,5 +350,12 @@ If you continue to have problems:
 3. **Verify architecture**: `uname -m`
 4. **Check available packages**: `apt-cache search python3-pyserial`
 5. **Install packages manually**: Use the pip commands above
+6. **Review package notes**: `PI_PACKAGE_NOTES.md`
+
+## 📚 **Additional Resources**
+
+- **Package Availability**: `PI_PACKAGE_NOTES.md` - Details on ARM64 package compatibility
+- **Full Deployment Guide**: `PI_DEPLOYMENT.md` - Comprehensive deployment information
+- **Troubleshooting**: See troubleshooting sections above
 
 Happy robot building! 🤖

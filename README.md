@@ -5,6 +5,8 @@
 
 ---
 
+![Build Docker](https://github.com/ngardner045/slam-bot/actions/workflows/docker.yml/badge.svg)
+
 ## 🚀 Features
 - **Motor control**: RoboClaw 2x15A, packet-serial over USB
 - **Odometry**: Wheel encoders → `/odom` (with optional TF publishing)

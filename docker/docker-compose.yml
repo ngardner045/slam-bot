@@ -1,0 +1,32 @@
+services:
+  roboclaw:
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - ROS_DOMAIN_ID=7
+      - ROS_LOCALHOST_ONLY=0
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    network_mode: host
+    devices:
+      - "/dev/ttyACM0:/dev/ttyACM0"
+      - "/dev/input/event5:/dev/input/event5"
+    volumes:
+      - ../roboclaw_base_node.py:/app/roboclaw_base_node.py:ro
+      - ./teleop.yaml:/app/teleop.yaml:ro
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        source /opt/ros/humble/setup.bash
+        # 1) Start the RoboClaw driver (background)
+        python3 /app/roboclaw_base_node.py --ros-args \
+          -p port:=/dev/ttyACM0 -p address:=0x80 \
+          -p max_duty_frac:=0.8 -p v_full:=0.6 -p cmd_timeout:=2.0 &
+        # 2) Start joy_node (background)
+        ros2 run joy joy_node --ros-args \
+          -p dev:=/dev/input/event5 -p autorepeat_rate:=20.0 -p deadzone:=0.05 &
+        # 3) Start teleop_twist_joy (foreground)
+        #    (LB=6 deadman, RB=7 turbo; linear axis=1; yaw axis=0)
+        ros2 run teleop_twist_joy teleop_node --ros-args --params-file /app/teleop.yaml

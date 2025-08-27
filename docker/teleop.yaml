@@ -1,0 +1,30 @@
+joy_node:
+  ros__parameters:
+    dev: /dev/input/event5        # or your /dev/input/eventX
+    deadzone: 0.05
+    autorepeat_rate: 20.0
+
+teleop_twist_joy_node:
+  ros__parameters:
+    # Xbox controller mapping (common on Linux/ROS):
+    # axes[1] = Left stick vertical (forward/back)
+    # axes[0] = Left stick horizontal (left/right)
+    # buttons[4] = LB (deadman)
+    # buttons[5] = RB (turbo)
+    axis_linear:
+      x: 1          # Left stick up/down drives forward/back
+    scale_linear:
+      x: 0.6        # m/s at full stick with LB (deadman) held
+    scale_linear_turbo:
+      x: 1.0        # m/s at full stick with RB (turbo) + LB
+
+    axis_angular:
+      yaw: 0          # Left stick left/right turns
+    scale_angular:
+      yaw: 1.2        # rad/s with LB
+    scale_angular_turbo:
+      yaw: 2.2        # rad/s with RB+LB
+
+    enable_button: 6          # LB = hold to move (deadman)
+    enable_turbo_button: 7    # RB = turbo while held with LB
+    require_enable_button: true

@@ -12,7 +12,7 @@ services:
       - "/dev/ttyACM0:/dev/ttyACM0"
       - "/dev/input/event5:/dev/input/event5"
     volumes:
-      - ../roboclaw_base_node.py:/app/roboclaw_base_node.py:ro
+      - ../src/roboclaw_base_node.py:/app/roboclaw_base_node.py:ro
       - ./teleop.yaml:/app/teleop.yaml:ro
     command:
       - bash

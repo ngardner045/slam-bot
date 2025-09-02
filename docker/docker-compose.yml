@@ -12,7 +12,7 @@ services:
       - "/dev/ttyACM0:/dev/ttyACM0"
       - "/dev/input/event5:/dev/input/event5"
     volumes:
-      - ../roboclaw_base_node.py:/app/roboclaw_base_node.py:ro
+      - ../src/roboclaw_base_node.py:/app/roboclaw_base_node.py:ro
       - ./teleop.yaml:/app/teleop.yaml:ro
     command:
       - bash
@@ -30,3 +30,36 @@ services:
         # 3) Start teleop_twist_joy (foreground)
         #    (LB=6 deadman, RB=7 turbo; linear axis=1; yaw axis=0)
         ros2 run teleop_twist_joy teleop_node --ros-args --params-file /app/teleop.yaml
+  realsense:
+    build:
+      context: ..
+      dockerfile: docker/realsense.Dockerfile
+    container_name: realsense
+    network_mode: host
+    privileged: true
+    security_opt: ["seccomp:unconfined"]
+    # Present *all* device nodes (fastest way to avoid permission/enumeration issues on Pi)
+    volumes:
+      - /dev:/dev
+      - /run/udev:/run/udev:ro
+    environment:
+      - ROS_DOMAIN_ID=7
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      # Not strictly needed after FORCE_LIBUVC build, but harmless:
+      - REALSENSE_USB_BACKEND=libusb
+    entrypoint: ["/ros_entrypoint.sh"]
+    command: >
+      bash -lc '
+        source /opt/ros_ws/install/setup.bash;
+        exec ros2 launch realsense2_camera rs_launch.py
+          camera_name:=d455
+          serial_no:=308222300613 
+          enable_depth:=true
+          enable_color:=false
+          enable_gyro:=false
+          enable_accel:=false
+          depth_module.depth_profile:=640x480x15
+          initial_reset:=true
+          wait_for_device_timeout:=20.0
+      '
+    restart: unless-stopped

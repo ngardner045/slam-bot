@@ -14,6 +14,7 @@ services:
     volumes:
       - ../src/roboclaw_base_node.py:/app/roboclaw_base_node.py:ro
       - ./teleop.yaml:/app/teleop.yaml:ro
+      - ../captures:/captures:rw
     command:
       - bash
       - -lc
@@ -26,8 +27,10 @@ services:
           -p max_duty_frac:=0.8 -p v_full:=0.6 -p cmd_timeout:=2.0 &
         # 2) Start joy_node (background)
         ros2 run joy joy_node --ros-args \
+        # 3) Snapshot Trigger (default Y=3; override with --ros-args -p y_button_index:=X)
+        python3 /app/snapshot_recorder.py &
           -p dev:=/dev/input/event5 -p autorepeat_rate:=20.0 -p deadzone:=0.05 &
-        # 3) Start teleop_twist_joy (foreground)
+        # 4) Start teleop_twist_joy (foreground)
         #    (LB=6 deadman, RB=7 turbo; linear axis=1; yaw axis=0)
         ros2 run teleop_twist_joy teleop_node --ros-args --params-file /app/teleop.yaml
   realsense:
@@ -48,18 +51,20 @@ services:
       # Not strictly needed after FORCE_LIBUVC build, but harmless:
       - REALSENSE_USB_BACKEND=libusb
     entrypoint: ["/ros_entrypoint.sh"]
-    command: >
-      bash -lc '
+    command: 
+      - bash
+      - -c
+      - |
         source /opt/ros_ws/install/setup.bash;
-        exec ros2 launch realsense2_camera rs_launch.py
-          camera_name:=d455
-          serial_no:=308222300613 
-          enable_depth:=true
-          enable_color:=false
-          enable_gyro:=false
-          enable_accel:=false
-          depth_module.depth_profile:=640x480x15
-          initial_reset:=true
+        exec ros2 launch realsense2_camera rs_launch.py \
+          camera_name:=d455 \
+          enable_depth:=true \
+          enable_color:=true \
+          enable_gyro:=false \
+          enable_accel:=false \
+          pointcloud.enable:=true \
+          depth_module.depth_profile:=640x480x15 \
+          align_depth.enable:=true \
+          initial_reset:=true \
           wait_for_device_timeout:=20.0
-      '
     restart: unless-stopped

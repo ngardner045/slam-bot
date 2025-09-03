@@ -1,0 +1,10 @@
+# rs_params.yaml  (flat dict expected by your launch file)
+depth_module.depth_profile: "640x480x15"
+rgb_camera.color_profile:  "640x480x15"
+align_depth.enable: true
+pointcloud__neon_.enable: true
+pointcloud__neon_.allow_no_texture_points: true
+enable_depth: true
+enable_color: true
+initial_reset: true
+wait_for_device_timeout: 20.0

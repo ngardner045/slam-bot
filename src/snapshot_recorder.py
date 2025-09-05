@@ -18,7 +18,7 @@ SENSOR_QOS = QoSProfile(
 class SnapshotTrigger(Node):
     def __init__(self):
         super().__init__('snapshot_trigger')
-        self.declare_parameter('y_button_index', 3)
+        self.declare_parameter('y_button_index', 4)
         self.y_idx = int(self.get_parameter('y_button_index').value)
         self.prev = 0
         self.want_image = True  # arm once at startup for sanity

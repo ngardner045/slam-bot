@@ -2,7 +2,15 @@
 FROM ros:humble-ros-base
 
 # For Python serial and TF broadcaster deps already in ros-base
-RUN apt-get update && apt-get install -y python3-pip ros-humble-joy ros-humble-teleop-twist-joy && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+        python3-pip \
+        ros-humble-joy \
+        ros-humble-teleop-twist-joy \
+        ros-humble-cv-bridge \
+        python3-opencv \
+        ros-humble-image-transport \
+        && rm -rf /var/lib/apt/lists/*
+
 RUN pip3 install pyserial
 
 # Copy your node

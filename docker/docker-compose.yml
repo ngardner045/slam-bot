@@ -73,7 +73,7 @@ services:
         # 2) Start joy_node (background)
         ros2 run joy joy_node --ros-args \
           -p dev:=/dev/input/event5 -p autorepeat_rate:=20.0 -p deadzone:=0.05 &
-        # 3) Snapshot Trigger (default Y=3; override with --ros-args -p y_button_index:=X)
+        # 3) Snapshot Trigger (default Y=4; override with --ros-args -p y_button_index:=X)
         python3 /app/snapshot_recorder.py &
         # 4) Start teleop_twist_joy (foreground)
         #    (LB=6 deadman, RB=7 turbo; linear axis=1; yaw axis=0)

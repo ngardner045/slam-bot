@@ -1,10 +1,53 @@
 services:
+  realsense:
+    build:
+      context: ..
+      dockerfile: docker/realsense.Dockerfile
+    container_name: realsense
+    network_mode: host
+    privileged: true
+    security_opt: ["seccomp:unconfined"]
+    ipc: shareable
+    shm_size: "1g"
+    volumes:
+      - /dev:/dev
+      - /run/udev:/run/udev:ro
+      - ./rs_params.yaml:/app/rs_params.yaml:ro
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - ROS_DOMAIN_ID=7
+      - ROS_LOCALHOST_ONLY=0
+      - REALSENSE_USB_BACKEND=libusb
+    entrypoint: ["/ros_entrypoint.sh"]
+    command:
+      - bash
+      - -lc
+      - |
+        source /opt/ros_ws/install/setup.bash;
+        exec ros2 launch realsense2_camera rs_launch.py \
+          camera_name:=d455 \
+          config_file:=/app/rs_params.yaml
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -lc 'source /opt/ros_ws/install/setup.bash && for i in {1..10}; do ros2 topic list | grep -q ^/camera/d455/color/image_raw$ && exit 0; sleep 2; done; exit 1'"
+        ]
+      interval: 5s
+      timeout: 5s
+      start_period: 60s
+      retries: 30
   roboclaw:
     environment:
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - ROS_DOMAIN_ID=7
       - ROS_LOCALHOST_ONLY=0
-      - FASTRTPS_DEFAULT_PROFILES_FILE=/app/fastdds.xml
+    security_opt: ["seccomp:unconfined"]
+    ipc: "container:realsense"
+    depends_on:
+      realsense:
+        condition: service_healthy
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -17,7 +60,6 @@ services:
       - ../src/snapshot_recorder.py:/app/snapshot_recorder.py:ro
       - ../captures:/captures:rw
       - ./teleop.yaml:/app/teleop.yaml:ro
-      - ./fastdds.xml:/app/fastdds.xml:ro
     command:
       - bash
       - -lc
@@ -36,34 +78,3 @@ services:
         # 4) Start teleop_twist_joy (foreground)
         #    (LB=6 deadman, RB=7 turbo; linear axis=1; yaw axis=0)
         ros2 run teleop_twist_joy teleop_node --ros-args --params-file /app/teleop.yaml
-  realsense:
-    build:
-      context: ..
-      dockerfile: docker/realsense.Dockerfile
-    container_name: realsense
-    network_mode: host
-    privileged: true
-    security_opt: ["seccomp:unconfined"]
-    # Present *all* device nodes (fastest way to avoid permission/enumeration issues on Pi)
-    volumes:
-      - /dev:/dev
-      - /run/udev:/run/udev:ro
-      - ./rs_params.yaml:/app/rs_params.yaml:ro
-      - ./fastdds.xml:/app/fastdds.xml:ro
-    environment:
-      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-      - ROS_DOMAIN_ID=7
-      - ROS_LOCALHOST_ONLY=0
-      - FASTRTPS_DEFAULT_PROFILES_FILE=/app/fastdds.xml
-      # Not strictly needed after FORCE_LIBUVC build, but harmless:
-      - REALSENSE_USB_BACKEND=libusb
-    entrypoint: ["/ros_entrypoint.sh"]
-    command:
-      - bash
-      - -lc
-      - |
-        source /opt/ros_ws/install/setup.bash;
-        exec ros2 launch realsense2_camera rs_launch.py \
-          camera_name:=d455 \
-          config_file:=/app/rs_params.yaml
-    restart: unless-stopped

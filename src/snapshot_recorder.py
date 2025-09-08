@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import math
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
@@ -106,14 +107,72 @@ def _ensure_xyz32(arr) -> np.ndarray:
     # Final dtype
     return a.astype(np.float32, copy=False)
 
+def _rpy_deg_to_R(roll_deg: float, pitch_deg: float, yaw_deg: float) -> np.ndarray:
+    """
+    Build 3x3 rotation matrix from roll, pitch, yaw in DEGREES (ROS RPY order).
+    Rotation order: Rz(yaw) * Ry(pitch) * Rx(roll). Axes follow right-hand rule.
+    """
+    r = math.radians(roll_deg)
+    p = math.radians(pitch_deg)
+    y = math.radians(yaw_deg)
+    cr, sr = math.cos(r), math.sin(r)
+    cp, sp = math.cos(p), math.sin(p)
+    cy, sy = math.cos(y), math.sin(y)
+
+    Rx = np.array([[1, 0, 0],
+                   [0, cr, -sr],
+                   [0, sr,  cr]], dtype=np.float32)
+    Ry = np.array([[ cp, 0, sp],
+                   [  0, 1,  0],
+                   [-sp, 0, cp]], dtype=np.float32)
+    Rz = np.array([[cy, -sy, 0],
+                   [sy,  cy, 0],
+                   [ 0,   0, 1]], dtype=np.float32)
+    R = (Rz @ Ry @ Rx).astype(np.float32)
+    return R
+
+def _apply_rigid_transform(xyz: np.ndarray, R: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """
+    xyz: (N,3), R: (3,3), t: (3,)
+    Returns xyz' = R * xyz + t
+    """
+    return (xyz @ R.T) + t  # row vectors; faster than per-point loops
+
 class SnapshotTrigger(Node):
     def __init__(self):
         super().__init__('snapshot_trigger')
         # Params
         self.declare_parameter('y_button_index', 4)         # XBox: Y=4 in your current mapping
         self.declare_parameter('cloud_format', 'pcd')       # 'pcd' | 'bin' | 'npy'
+
+        self.declare_parameter('apply_transform', True)    # if True, apply T_cam->robot before save
+        self.declare_parameter('tx', 0.2281)                   # meters (forward +X of robot)
+        self.declare_parameter('ty', 0.0475)                   # meters (left +Y of robot)
+        self.declare_parameter('tz', 0.1532)                   # meters (up +Z of robot)
+        self.declare_parameter('roll_deg', 0.0)             # degrees
+        self.declare_parameter('pitch_deg', 15.0)            # degrees (downward tilt is positive)
+        self.declare_parameter('yaw_deg', 0.0)              # degrees
+
+        R_OPT_TO_BASE = np.array([
+            [ 0,  0, 1],
+            [-1,  0, 0],
+            [ 0, -1, 0],
+        ], dtype=np.float32)
+
         self.y_idx = int(self.get_parameter('y_button_index').value)
         self.cloud_format = str(self.get_parameter('cloud_format').value).lower()
+        
+        self.apply_transform = bool(self.get_parameter('apply_transform').value)
+        tx = float(self.get_parameter('tx').value)
+        ty = float(self.get_parameter('ty').value)
+        tz = float(self.get_parameter('tz').value)
+        roll = float(self.get_parameter('roll_deg').value)
+        pitch = float(self.get_parameter('pitch_deg').value)
+        yaw = float(self.get_parameter('yaw_deg').value)
+
+        self.t_vec = np.array([tx, ty, tz], dtype=np.float32)
+        R_mount = _rpy_deg_to_R(roll, pitch, yaw).astype(np.float32)
+        self.R_mat = (R_mount @ R_OPT_TO_BASE).astype(np.float32)
 
         # State
         self.prev_button = 0
@@ -134,7 +193,10 @@ class SnapshotTrigger(Node):
             f"  Image topic:   /camera/d455/color/image_raw\n"
             f"  Cloud topic:   /camera/d455/depth/color/points\n"
             f"  Cloud format:  {self.cloud_format}\n"
-            f"  Y button idx:  {self.y_idx}"
+            f"  Y button idx:  {self.y_idx}\n"
+            f"  Transform on:  {self.apply_transform}\n"
+            f"  T (m):         [{tx:.3f}, {ty:.3f}, {tz:.3f}]\n"
+            f"  R (deg RPY):   [{roll:.2f}, {pitch:.2f}, {yaw:.2f}]"
         )
 
     def on_joy(self, msg: Joy):
@@ -175,6 +237,9 @@ class SnapshotTrigger(Node):
             if xyz.size == 0:
                 self.get_logger().warn("Point cloud empty after filtering; nothing saved.")
                 return
+            
+            if self.apply_transform:
+                xyz = _apply_rigid_transform(xyz, self.R_mat, self.t_vec)
 
             stamp = f"{msg.header.stamp.sec}_{msg.header.stamp.nanosec:09d}"
             fmt = self.cloud_format

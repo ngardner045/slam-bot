@@ -24,6 +24,9 @@ services:
       - -lc
       - |
         source /opt/ros_ws/install/setup.bash;
+        # base_link -> d455_link  (angles in RADIANS; 15° pitch = 0.261799)
+        ros2 run tf2_ros static_transform_publisher \
+            0.2281 0.0475 0.1532  0 0.261799 0  base_link d455_link &
         exec ros2 launch realsense2_camera rs_launch.py \
           camera_name:=d455 \
           config_file:=/app/rs_params.yaml

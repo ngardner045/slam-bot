@@ -158,6 +158,10 @@ class SnapshotTrigger(Node):
 
             # 3) Convert to xyz for saving
             xyz = _cloud_to_xyz_array(cloud_robot)
+
+            z = xyz[:, 2]
+            zmask = (z >= -0.05) & (z <= 10)
+            xyz = xyz[zmask]
             
             if xyz.size == 0:
                 self.get_logger().warn("Point cloud empty after filtering; nothing saved.")

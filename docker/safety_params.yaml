@@ -1,0 +1,51 @@
+snapshot_trigger:
+  ros__parameters:
+    # Inputs / outputs
+    target_frame: base_link
+    cloud_format: pcd          # pcd | bin | npy
+    y_button_index: 4          # Xbox Y (toggle capture)
+    fn_trigger_index: 4        # RT axis as "ROI snapshot" modifier
+
+    # ROI settings (used when FN/RT held)
+    robot_width: 0.35
+    side_margin: 0.06
+    z_min: 0.10
+    z_max: 1.20
+    x_forward_min: 1.0        # near cutoff (robot-frame)
+    x_forward_max: 2.0         # far cutoff
+
+safe_manual_guard:
+  ros__parameters:
+    # Topics & frames
+    pointcloud_topic: /camera/d455/depth/color/points
+    joy_topic: /joy
+    cmd_in_topic: /cmd_vel
+    cmd_out_topic: /cmd_vel_safe
+    target_frame: base_link
+
+    # Robot geometry & safety margins
+    robot_width: 0.35
+    robot_length: 0.40
+    side_margin: 0.06
+    front_margin: 0.10
+    rear_margin: 0.06
+
+    # Dynamics model
+    accel_limit: 0.8
+    ctrl_latency: 0.10
+    min_buffer: 0.15
+
+    # Cloud filtering & ROI (forward band)
+    z_min: 0.10
+    z_max: 1.20
+    x_forward_min: 1.0        # must match snapshot_trigger for consistent ROI
+    x_forward_max: 2.0
+    voxel_stride: 12
+    max_points: 60000
+
+    # Controls / guard behavior
+    override_button_idx: 7     # RB
+    hard_stop_clearance: 0.20
+    sensor_min_range: 0.65     # includes camera’s near blind + conservatism
+    guard_distance: 0.75
+    cloud_stale_timeout: 0.20

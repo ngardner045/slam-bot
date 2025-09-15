@@ -63,6 +63,7 @@ services:
       - ../src/snapshot_recorder.py:/app/snapshot_recorder.py:ro
       - ../captures:/captures:rw
       - ./teleop.yaml:/app/teleop.yaml:ro
+      - ./safety_params.yaml:/app/safety_params.yaml:ro
     command:
       - bash
       - -lc
@@ -72,12 +73,38 @@ services:
         # 1) Start the RoboClaw driver (background)
         python3 /app/roboclaw_base_node.py --ros-args \
           -p port:=/dev/ttyACM0 -p address:=0x80 \
-          -p max_duty_frac:=0.8 -p v_full:=0.6 -p cmd_timeout:=2.0 &
+          -p max_duty_frac:=0.8 -p v_full:=0.6 -p cmd_timeout:=2.0 \
+          -r /cmd_vel:=/cmd_vel_safe &
         # 2) Start joy_node (background)
         ros2 run joy joy_node --ros-args \
           -p dev:=/dev/input/event5 -p autorepeat_rate:=20.0 -p deadzone:=0.05 &
         # 3) Snapshot Trigger (default Y=4; override with --ros-args -p y_button_index:=X)
-        python3 /app/snapshot_recorder.py &
+        python3 /app/snapshot_recorder.py --ros-args --params-file /app/safety_params.yaml &
         # 4) Start teleop_twist_joy (foreground)
         #    (LB=6 deadman, RB=7 turbo; linear axis=1; yaw axis=0)
         ros2 run teleop_twist_joy teleop_node --ros-args --params-file /app/teleop.yaml
+  safe_manual_driving:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile      # same base image you use for roboclaw/snapshot_recorder
+    container_name: safe_manual_driving
+    network_mode: host
+    ipc: "container:realsense"           # share IPC with the realsense container so TF topics are visible
+    depends_on:
+      realsense:
+        condition: service_healthy
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - ROS_DOMAIN_ID=7
+      - ROS_LOCALHOST_ONLY=0
+    volumes:
+      - ../src/safe_manual_driving.py:/app/safe_manual_driving.py:ro
+      - ./safety_params.yaml:/app/safety_params.yaml:ro
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        source /opt/ros/humble/setup.bash
+        exec python3 /app/safe_manual_driving.py --ros-args --params-file /app/safety_params.yaml
+    restart: unless-stopped

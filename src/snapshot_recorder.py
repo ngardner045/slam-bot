@@ -80,19 +80,36 @@ class SnapshotTrigger(Node):
         super().__init__('snapshot_trigger')
         # Params
         self.declare_parameter('y_button_index', 4)         # XBox: Y=4 in your current mapping
+        self.declare_parameter('fn_trigger_index', 4)
         self.declare_parameter('cloud_format', 'pcd')       # 'pcd' | 'bin' | 'npy'
 
         self.declare_parameter('target_frame', 'base_link')  # TF target frame
 
+        self.declare_parameter('robot_width', 0.35)
+        self.declare_parameter('side_margin', 0.06)
+        self.declare_parameter('z_min', 0.10)
+        self.declare_parameter('z_max', 1.20)
+        self.declare_parameter('x_forward_min', 0.70)
+        self.declare_parameter('x_forward_max', 2.0)
+
         self.y_idx = int(self.get_parameter('y_button_index').value)
+        self.fn_trigger_index = int(self.get_parameter('fn_trigger_index').value)
         self.cloud_format = str(self.get_parameter('cloud_format').value).lower()
         
         self.target_frame = str(self.get_parameter('target_frame').value)
+        
+        self.robot_width = float(self.get_parameter('robot_width').value)
+        self.side_margin = float(self.get_parameter('side_margin').value)
+        self.z_min = float(self.get_parameter('z_min').value)
+        self.z_max = float(self.get_parameter('z_max').value)
+        self.x_forward_min = float(self.get_parameter('x_forward_min').value)
+        self.x_forward_max = float(self.get_parameter('x_forward_max').value)
 
         # State
         self.prev_button = 0
         self.want_image = False
         self.want_cloud = False
+        self.fn_trigger_pressed = False
 
         os.makedirs(CAPTURE_DIR, exist_ok=True)
         self.bridge = CvBridge()
@@ -126,6 +143,10 @@ class SnapshotTrigger(Node):
             self.want_cloud = True
             self.get_logger().info('Y pressed → will save next color image (PNG) and next point cloud')
         self.prev_button = cur
+
+        if len(msg.axes) > self.fn_trigger_index:
+            fn_trigger_value = msg.axes[self.fn_trigger_index]
+            self.fn_trigger_pressed = (fn_trigger_value < 0)
 
     def on_img(self, msg: Image):
         if not self.want_image:
@@ -166,6 +187,23 @@ class SnapshotTrigger(Node):
             if xyz.size == 0:
                 self.get_logger().warn("Point cloud empty after filtering; nothing saved.")
                 return
+            
+            xyz_safe = None
+            
+            if self.fn_trigger_pressed:
+                x = xyz[:, 0]
+                y = xyz[:, 1]
+                z = xyz[:, 2]
+                half_w = 0.5 * self.robot_width + self.side_margin
+
+                front_band = (x >= self.x_forward_min) & (x <= self.x_forward_max) & (np.abs(y) <= half_w)
+                safety_zmask = (z >= self.z_min) & (z <= self.z_max)
+
+                roi_mask = front_band & safety_zmask
+
+                xyz_safe = xyz[roi_mask]
+
+                self.get_logger().info(f"ROI points: {xyz_safe.shape[0]} / {xyz.shape[0]}")
 
             stamp = f"{msg.header.stamp.sec}_{msg.header.stamp.nanosec:09d}"
             fmt = self.cloud_format
@@ -173,12 +211,21 @@ class SnapshotTrigger(Node):
             if fmt == 'pcd':
                 out = os.path.join(CAPTURE_DIR, f"{stamp}.pcd")
                 _save_pcd_ascii(out, xyz)
+                if xyz_safe is not None:
+                    out_safe = os.path.join(CAPTURE_DIR, f"{stamp}_safe.pcd")
+                    _save_pcd_ascii(out_safe, xyz_safe)
             elif fmt == 'bin':
                 out = os.path.join(CAPTURE_DIR, f"{stamp}.bin")
                 _save_bin(out, xyz)
+                if xyz_safe is not None:
+                    out_safe = os.path.join(CAPTURE_DIR, f"{stamp}_safe.bin")
+                    _save_bin(out_safe, xyz_safe)
             elif fmt == 'npy':
                 out = os.path.join(CAPTURE_DIR, f"{stamp}.npy")
                 np.save(out, xyz, allow_pickle=False)
+                if xyz_safe is not None:
+                    out_safe = os.path.join(CAPTURE_DIR, f"{stamp}_safe.npy")
+                    np.save(out_safe, xyz_safe, allow_pickle=False)
             else:
                 raise ValueError(f"Unsupported cloud_format '{fmt}' (use 'pcd', 'bin', or 'npy').")
 
